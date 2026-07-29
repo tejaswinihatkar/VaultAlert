@@ -1,0 +1,77 @@
+# ─── Python ──────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+develop-eggs/
+.installed.cfg
+lib/
+lib64/
+
+# ─── Virtual Environments ────────────────────────────
+venv/
+.venv/
+env/
+ENV/
+.env
+backend/.env
+
+# ─── Node / Next.js ──────────────────────────────────
+node_modules/
+.next/
+out/
+.vercel/
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ─── IDEs ────────────────────────────────────────────
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ─── OS ──────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ─── Logs ────────────────────────────────────────────
+*.log
+logs/
+*.log.*
+
+# ─── Docker ──────────────────────────────────────────
+docker-volumes/
+
+# ─── Alembic ─────────────────────────────────────────
+backend/alembic/versions/*.pyc
+
+# ─── Test Artifacts ──────────────────────────────────
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# ─── Build outputs ───────────────────────────────────
+*.pyc
+*.pyo
+*.pyd
