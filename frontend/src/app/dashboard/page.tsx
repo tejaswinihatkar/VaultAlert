@@ -304,19 +304,19 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans antialiased pb-12 selection:bg-indigo-500 selection:text-white">
-      {/* Glow effects */}
-      <div className="absolute top-0 left-1/4 w-96 h-96 bg-indigo-500/10 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-emerald-500/5 rounded-full blur-[150px] pointer-events-none" />
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans antialiased pb-12 selection:bg-indigo-500 selection:text-white">
+      {/* Soft Light glow effects */}
+      <div className="absolute top-0 left-1/4 w-96 h-96 bg-indigo-500/5 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-emerald-500/5 rounded-full blur-[120px] pointer-events-none" />
 
       {/* Header */}
-      <header className="sticky top-0 z-50 backdrop-blur-md bg-slate-950/80 border-b border-slate-900 px-6 py-4 flex items-center justify-between">
+      <header className="sticky top-0 z-50 backdrop-blur-md bg-white/80 border-b border-slate-200 px-6 py-4 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/20 ring-1 ring-white/10">
+          <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-md ring-1 ring-white/10">
             <Lock className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h1 className="text-lg font-bold tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">
+            <h1 className="text-lg font-bold tracking-tight bg-gradient-to-r from-slate-900 via-slate-800 to-slate-600 bg-clip-text text-transparent">
               VaultAlert
             </h1>
             <p className="text-xs text-slate-500">Live Hardware Security Hub</p>
@@ -328,13 +328,13 @@ export default function DashboardPage() {
           <div
             className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all duration-300 ${
               sseConnected
-                ? "bg-emerald-950/40 border-emerald-800/40 text-emerald-400"
-                : "bg-amber-950/40 border-amber-800/40 text-amber-400"
+                ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                : "bg-amber-50 border-amber-200 text-amber-700"
             }`}
           >
             <span
               className={`h-2 w-2 rounded-full ${
-                sseConnected ? "bg-emerald-400 animate-pulse" : "bg-amber-400"
+                sseConnected ? "bg-emerald-500 animate-pulse" : "bg-amber-500"
               }`}
             />
             {sseConnected ? "Live Connection" : "Connecting..."}
@@ -349,21 +349,21 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
           {/* Hero Locker Card */}
-          <div className="lg:col-span-2 relative overflow-hidden rounded-3xl border border-slate-900 bg-gradient-to-br from-slate-900 to-slate-950 p-8 flex flex-col justify-between min-h-[300px]">
+          <div className="lg:col-span-2 relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-8 flex flex-col justify-between min-h-[300px] shadow-sm">
             <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-[80px] pointer-events-none" />
             
             <div className="flex items-start justify-between">
               <div>
-                <span className="text-xs font-semibold tracking-wider text-slate-500 uppercase">
+                <span className="text-xs font-semibold tracking-wider text-slate-400 uppercase">
                   Locker Status
                 </span>
-                <h2 className="text-3xl font-black mt-1 tracking-tight text-white">
+                <h2 className="text-3xl font-black mt-1 tracking-tight text-slate-950">
                   Main Vault 01
                 </h2>
               </div>
               <div className="text-right">
-                <span className="text-xs text-slate-500 block">Security Factors</span>
-                <span className="text-xs font-medium text-indigo-400">
+                <span className="text-xs text-slate-400 block">Security Factors</span>
+                <span className="text-xs font-semibold text-indigo-600">
                   Fingerprint · 4-digit PIN
                 </span>
               </div>
@@ -371,10 +371,10 @@ export default function DashboardPage() {
 
             <div className="my-8 flex items-center gap-6">
               <div
-                className={`h-20 w-20 rounded-2xl flex items-center justify-center transition-all duration-500 shadow-xl ${
+                className={`h-20 w-20 rounded-2xl flex items-center justify-center transition-all duration-500 shadow-md ${
                   lockerState === "Unlocked"
-                    ? "bg-emerald-500/10 text-emerald-400 ring-2 ring-emerald-500/20 shadow-emerald-500/10"
-                    : "bg-indigo-500/10 text-indigo-400 ring-2 ring-indigo-500/20 shadow-indigo-500/10"
+                    ? "bg-emerald-50 text-emerald-600 ring-2 ring-emerald-100 shadow-emerald-500/5"
+                    : "bg-indigo-50 text-indigo-600 ring-2 ring-indigo-100 shadow-indigo-500/5"
                 }`}
               >
                 {lockerState === "Unlocked" ? (
@@ -386,7 +386,7 @@ export default function DashboardPage() {
               <div>
                 <div
                   className={`text-4xl font-extrabold tracking-tight ${
-                    lockerState === "Unlocked" ? "text-emerald-400" : "text-slate-100"
+                    lockerState === "Unlocked" ? "text-emerald-600" : "text-slate-800"
                   }`}
                 >
                   {lockerState}
@@ -395,7 +395,7 @@ export default function DashboardPage() {
                   {events[0] ? (
                     <>
                       Last activity:{" "}
-                      <span className="text-slate-300 font-medium">
+                      <span className="text-slate-800 font-semibold">
                         {events[0].label}
                       </span>{" "}
                       ({getRelativeTimeStr(events[0].timestamp)})
@@ -407,10 +407,10 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="border-t border-slate-900 pt-4 flex items-center justify-between text-xs text-slate-500">
-              <span>Hardware bus: <code className="text-indigo-400">ntfy.sh/{NTFY_TOPIC}</code></span>
+            <div className="border-t border-slate-100 pt-4 flex items-center justify-between text-xs text-slate-400">
+              <span>Hardware bus: <code className="text-indigo-600 bg-slate-50 px-1.5 py-0.5 rounded font-mono">ntfy.sh/{NTFY_TOPIC}</code></span>
               <span className="flex items-center gap-1">
-                <Clock className="h-3.5 w-3.5 text-slate-600" />
+                <Clock className="h-3.5 w-3.5 text-slate-400" />
                 Auto-updating
               </span>
             </div>
@@ -420,48 +420,48 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 gap-4">
             
             {/* Active Alerts Count */}
-            <div className="rounded-2xl border border-slate-900 bg-slate-900/40 p-6 flex items-center justify-between">
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 flex items-center justify-between shadow-sm">
               <div>
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
                   Active Alerts
                 </span>
-                <div className="text-3xl font-extrabold mt-1 text-slate-100">
+                <div className="text-3xl font-extrabold mt-1 text-slate-800">
                   {activeAlerts.length}
                 </div>
               </div>
               <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${
-                activeAlerts.length > 0 ? "bg-red-500/10 text-red-400" : "bg-slate-800 text-slate-500"
+                activeAlerts.length > 0 ? "bg-red-50 text-red-600" : "bg-slate-100 text-slate-400"
               }`}>
                 <ShieldAlert className="h-6 w-6" />
               </div>
             </div>
 
             {/* Authorised Users Count */}
-            <div className="rounded-2xl border border-slate-900 bg-slate-900/40 p-6 flex items-center justify-between">
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 flex items-center justify-between shadow-sm">
               <div>
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
                   Authorised Users
                 </span>
-                <div className="text-3xl font-extrabold mt-1 text-slate-100">
+                <div className="text-3xl font-extrabold mt-1 text-slate-800">
                   {authorizedUsers.length}
                 </div>
               </div>
-              <div className="h-12 w-12 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center">
+              <div className="h-12 w-12 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center">
                 <Users className="h-6 w-6" />
               </div>
             </div>
 
             {/* Total Events Captured */}
-            <div className="rounded-2xl border border-slate-900 bg-slate-900/40 p-6 flex items-center justify-between">
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 flex items-center justify-between shadow-sm">
               <div>
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
                   Events Handled
                 </span>
-                <div className="text-3xl font-extrabold mt-1 text-slate-100">
+                <div className="text-3xl font-extrabold mt-1 text-slate-800">
                   {events.length}
                 </div>
               </div>
-              <div className="h-12 w-12 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center">
+              <div className="h-12 w-12 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center">
                 <Activity className="h-6 w-6" />
               </div>
             </div>
@@ -471,12 +471,12 @@ export default function DashboardPage() {
 
         {/* Real-time Alerts Panel */}
         <div>
-          <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+          <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-amber-500" />
             Security Incidents
           </h3>
           {activeAlerts.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-900 p-8 text-center text-slate-500">
+            <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center text-slate-400 bg-white shadow-sm">
               No recent security alerts. Platform secure.
             </div>
           ) : (
@@ -488,10 +488,10 @@ export default function DashboardPage() {
                     initial={{ opacity: 0, scale: 0.95, y: 10 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95 }}
-                    className={`rounded-2xl border p-5 flex flex-col justify-between ${
+                    className={`rounded-2xl border p-5 flex flex-col justify-between shadow-sm ${
                       alert.severity === "critical"
-                        ? "bg-red-950/20 border-red-900/50 text-red-100"
-                        : "bg-amber-950/20 border-amber-900/50 text-amber-100"
+                        ? "bg-red-50 border-red-100 text-red-950"
+                        : "bg-amber-50 border-amber-100 text-amber-950"
                     }`}
                   >
                     <div>
@@ -499,22 +499,22 @@ export default function DashboardPage() {
                         <span
                           className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full ${
                             alert.severity === "critical"
-                              ? "bg-red-500/20 text-red-400"
-                              : "bg-amber-500/20 text-amber-400"
+                              ? "bg-red-200/50 text-red-700"
+                              : "bg-amber-200/50 text-amber-700"
                           }`}
                         >
                           {alert.severity}
                         </span>
-                        <span className="text-xs text-slate-500">
+                        <span className="text-xs text-slate-400">
                           {getRelativeTimeStr(alert.timestamp)}
                         </span>
                       </div>
                       <h4 className="text-base font-bold mb-1">{alert.label}</h4>
-                      <p className="text-xs text-slate-400">{alert.originalMessage}</p>
+                      <p className="text-xs text-slate-500">{alert.originalMessage}</p>
                     </div>
 
-                    <div className="mt-4 pt-3 border-t border-white/[0.04] text-[10px] text-slate-500 flex items-center gap-1.5">
-                      <CheckCircle className="h-3.5 w-3.5 text-indigo-400" />
+                    <div className="mt-4 pt-3 border-t border-slate-200/50 text-[10px] text-slate-400 flex items-center gap-1.5">
+                      <CheckCircle className="h-3.5 w-3.5 text-indigo-500" />
                       Alert broadcasted to Telegram bot
                     </div>
                   </motion.div>
@@ -528,26 +528,26 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
           {/* Activity Timeline */}
-          <div className="lg:col-span-2 rounded-2xl border border-slate-900 bg-slate-900/20 p-6">
-            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-6 flex items-center gap-2">
-              <Activity className="h-4 w-4 text-indigo-400" />
+          <div className="lg:col-span-2 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-6 flex items-center gap-2">
+              <Activity className="h-4 w-4 text-indigo-500" />
               Live Activity Timeline
             </h3>
 
             {events.length === 0 ? (
-              <div className="text-center py-12 text-slate-600 text-sm">
+              <div className="text-center py-12 text-slate-400 text-sm">
                 Awaiting hardware connection...
               </div>
             ) : (
-              <div className="relative border-l border-slate-900 ml-3.5 pl-6 space-y-6">
+              <div className="relative border-l border-slate-100 ml-3.5 pl-6 space-y-6">
                 {events.map((event) => {
-                  let iconColor = "bg-slate-800 text-slate-400";
+                  let iconColor = "bg-slate-100 text-slate-500";
                   if (event.severity === "critical") {
-                    iconColor = "bg-red-500/10 text-red-400 ring-1 ring-red-500/20";
+                    iconColor = "bg-red-50 text-red-500 ring-1 ring-red-100";
                   } else if (event.severity === "high") {
-                    iconColor = "bg-amber-500/10 text-amber-400 ring-1 ring-amber-500/20";
+                    iconColor = "bg-amber-50 text-amber-500 ring-1 ring-amber-100";
                   } else if (event.severity === "success") {
-                    iconColor = "bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20";
+                    iconColor = "bg-emerald-50 text-emerald-500 ring-1 ring-emerald-100";
                   }
 
                   return (
@@ -562,14 +562,14 @@ export default function DashboardPage() {
 
                       <div>
                         <div className="flex items-center justify-between">
-                          <p className="text-sm font-bold text-slate-200">
+                          <p className="text-sm font-bold text-slate-800">
                             {event.label}
                           </p>
-                          <span className="text-xs text-slate-500">
+                          <span className="text-xs text-slate-400">
                             {getRelativeTimeStr(event.timestamp)}
                           </span>
                         </div>
-                        <p className="text-xs text-slate-400 mt-1">
+                        <p className="text-xs text-slate-500 mt-1">
                           {event.originalMessage}
                         </p>
                       </div>
@@ -581,14 +581,14 @@ export default function DashboardPage() {
           </div>
 
           {/* Authorised Users List */}
-          <div className="rounded-2xl border border-slate-900 bg-slate-900/20 p-6">
-            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-6 flex items-center gap-2">
-              <UserCheck className="h-4 w-4 text-emerald-400" />
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-6 flex items-center gap-2">
+              <UserCheck className="h-4 w-4 text-emerald-500" />
               Verified Users
             </h3>
 
             {authorizedUsers.length === 0 ? (
-              <div className="text-center py-12 text-slate-600 text-sm">
+              <div className="text-center py-12 text-slate-400 text-sm">
                 No users verified in this session.
               </div>
             ) : (
@@ -596,14 +596,14 @@ export default function DashboardPage() {
                 {authorizedUsers.map((user) => (
                   <div
                     key={user.name}
-                    className="flex items-center gap-3 p-3 rounded-xl bg-slate-900/40 border border-slate-900 hover:border-slate-800 transition-colors"
+                    className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 hover:border-slate-200 transition-colors"
                   >
-                    <div className="h-8 w-8 rounded-lg bg-gradient-to-tr from-emerald-500/20 to-teal-500/20 text-emerald-400 font-bold text-xs flex items-center justify-center">
+                    <div className="h-8 w-8 rounded-lg bg-gradient-to-tr from-emerald-100 to-teal-100 text-emerald-700 font-bold text-xs flex items-center justify-center">
                       {user.name.slice(0, 2).toUpperCase()}
                     </div>
                     <div>
-                      <p className="text-sm font-bold text-slate-200">{user.name}</p>
-                      <p className="text-[10px] text-slate-500">
+                      <p className="text-sm font-bold text-slate-800">{user.name}</p>
+                      <p className="text-[10px] text-slate-400">
                         Last access: {getRelativeTimeStr(user.timestamp)}
                       </p>
                     </div>
@@ -617,13 +617,13 @@ export default function DashboardPage() {
         {/* Footage Section */}
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-              <Camera className="h-4 w-4 text-indigo-400" />
+            <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+              <Camera className="h-4 w-4 text-indigo-500" />
               Live Security Footage
             </h3>
             <button
               onClick={() => refetchFootage()}
-              className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition-colors"
+              className="text-xs text-indigo-500 hover:text-indigo-400 flex items-center gap-1 transition-colors"
             >
               <RefreshCw className="h-3 w-3" />
               Sync
@@ -631,10 +631,10 @@ export default function DashboardPage() {
           </div>
 
           {isFootageError ? (
-            <div className="rounded-2xl border border-dashed border-red-900/30 bg-red-950/5 p-8 text-center text-slate-500">
-              <WifiOff className="h-8 w-8 mx-auto mb-2 text-red-500" />
-              <p className="text-sm font-semibold text-slate-300">Footage Service Offline</p>
-              <p className="text-xs text-slate-500 mt-0.5">
+            <div className="rounded-2xl border border-dashed border-red-200 bg-red-50/5 p-8 text-center text-slate-400">
+              <WifiOff className="h-8 w-8 mx-auto mb-2 text-red-400" />
+              <p className="text-sm font-semibold text-slate-700">Footage Service Offline</p>
+              <p className="text-xs text-slate-400 mt-0.5">
                 The standalone service is unavailable or Telegram bot credentials are missing.
               </p>
             </div>
@@ -643,12 +643,12 @@ export default function DashboardPage() {
               {[...Array(4)].map((_, i) => (
                 <div
                   key={i}
-                  className="aspect-square rounded-2xl bg-slate-900/60 animate-pulse border border-slate-900"
+                  className="aspect-square rounded-2xl bg-slate-100 animate-pulse border border-slate-200"
                 />
               ))}
             </div>
           ) : footage.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-900 p-8 text-center text-slate-500">
+            <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center text-slate-400 bg-white shadow-sm">
               No snapshot footage found. Capture events will stream here automatically.
             </div>
           ) : (
@@ -656,7 +656,7 @@ export default function DashboardPage() {
               {footage.map((item) => (
                 <div
                   key={item.file_id}
-                  className="group relative aspect-square rounded-2xl overflow-hidden bg-slate-900 border border-slate-900 hover:border-slate-800 transition-all duration-300"
+                  className="group relative aspect-square rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 hover:border-slate-300 transition-all duration-300 shadow-sm"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
@@ -664,11 +664,11 @@ export default function DashboardPage() {
                     alt={item.caption}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-90 p-4 flex flex-col justify-end">
-                    <p className="text-xs font-bold text-slate-100 truncate">
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent opacity-90 p-4 flex flex-col justify-end">
+                    <p className="text-xs font-bold text-white truncate">
                       {item.caption}
                     </p>
-                    <p className="text-[10px] text-slate-500 mt-0.5">
+                    <p className="text-[10px] text-slate-300 mt-0.5">
                       {getRelativeTimeStr(item.date * 1000)}
                     </p>
                   </div>
