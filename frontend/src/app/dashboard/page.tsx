@@ -18,6 +18,8 @@ import {
   AlertCircle,
   Wifi,
   WifiOff,
+  LogOut,
+  User,
 } from "lucide-react";
 
 // Config - read from env or default to standard values
@@ -115,7 +117,6 @@ function classifyEvent(raw: RawNtfyMessage): ClassifiedEvent {
     };
   }
 
-  // Fallback for general messages
   return {
     id: raw.id,
     timestamp,
@@ -130,6 +131,20 @@ export default function DashboardPage() {
   const [events, setEvents] = useState<ClassifiedEvent[]>([]);
   const [sseConnected, setSseConnected] = useState(false);
   const [now, setNow] = useState(Date.now());
+  
+  // Auth state
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+  const [emailInput, setEmailInput] = useState("");
+  const [passwordInput, setPasswordInput] = useState("");
+  const [authError, setAuthError] = useState("");
+
+  // Handle Hydration mismatch & localStorage
+  useEffect(() => {
+    setIsMounted(true);
+    const loggedIn = localStorage.getItem("va_logged_in") === "true";
+    setIsLoggedIn(loggedIn);
+  }, []);
 
   // Tick relative timestamps every second
   useEffect(() => {
@@ -156,10 +171,13 @@ export default function DashboardPage() {
     },
     refetchInterval: 10000, // Poll every 10s
     retry: false,
+    enabled: isLoggedIn, // only load when logged in
   });
 
-  // Connect to ntfy.sh and Telegram to pull backlog + live messages
+  // Connect to ntfy.sh and Telegram
   useEffect(() => {
+    if (!isLoggedIn) return;
+
     let active = true;
 
     async function loadBacklog() {
@@ -203,7 +221,7 @@ export default function DashboardPage() {
 
       if (!active) return;
 
-      // Merge and deduplicate (by checking combination of message text and timestamp, or ID)
+      // Merge and deduplicate
       setEvents((prev) => {
         const combined = [...ntfyEvents, ...telegramEvents, ...prev];
         const unique = Array.from(
@@ -215,7 +233,6 @@ export default function DashboardPage() {
 
     loadBacklog();
 
-    // Start EventSource for live updates
     const eventSource = new EventSource(`https://ntfy.sh/${NTFY_TOPIC}/sse`);
 
     eventSource.onopen = () => {
@@ -247,12 +264,10 @@ export default function DashboardPage() {
       active = false;
       eventSource.close();
     };
-  }, []);
+  }, [isLoggedIn]);
 
   // Compute Locker State
-  // Flips state to "Unlocked" if the last state-flipping event is Access Granted / Locker Opened.
   const lockerState = useMemo(() => {
-    // Find the latest state-affecting message
     const stateEvent = events.find(
       (e) =>
         e.type === "access_granted" ||
@@ -264,13 +279,12 @@ export default function DashboardPage() {
 
     if (!stateEvent) return "Locked";
     if (stateEvent.type === "access_granted") return "Unlocked";
-    return "Locked"; // Reset to Locked on boot or alert security threats
+    return "Locked"; 
   }, [events]);
 
   // Compute Authorized Users List
   const authorizedUsers = useMemo(() => {
     const userMap: { [name: string]: number } = {};
-    // Chronological order processing so the latest wins
     [...events].reverse().forEach((e) => {
       if (e.type === "authorized" && e.name) {
         userMap[e.name] = e.timestamp;
@@ -282,7 +296,7 @@ export default function DashboardPage() {
       .sort((a, b) => b.timestamp - a.timestamp);
   }, [events]);
 
-  // Compute Active Alerts (unauthorised access, wrong PIN, lockout)
+  // Compute Active Alerts
   const activeAlerts = useMemo(() => {
     return events.filter(
       (e) =>
@@ -303,9 +317,101 @@ export default function DashboardPage() {
     return `${diffHr}h ago`;
   };
 
+  // Login handler
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!emailInput.trim() || !passwordInput.trim()) {
+      setAuthError("Email and Password are required.");
+      return;
+    }
+    // Minimal professional validation check
+    if (emailInput === "admin@vaultalert.io" && passwordInput === "admin") {
+      localStorage.setItem("va_logged_in", "true");
+      setIsLoggedIn(true);
+      setAuthError("");
+    } else {
+      setAuthError("Invalid credentials. Try admin@vaultalert.io / admin");
+    }
+  };
+
+  // Logout handler
+  const handleLogout = () => {
+    localStorage.removeItem("va_logged_in");
+    setIsLoggedIn(false);
+    setEmailInput("");
+    setPasswordInput("");
+  };
+
+  if (!isMounted) return null;
+
+  // Render Login Screen if not logged in
+  if (!isLoggedIn) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center font-sans antialiased px-6 selection:bg-indigo-500 selection:text-white">
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-indigo-500/5 rounded-full blur-[100px] pointer-events-none" />
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-emerald-500/5 rounded-full blur-[120px] pointer-events-none" />
+
+        <div className="w-full max-w-md bg-white border border-slate-200 shadow-xl rounded-3xl p-8 relative z-10">
+          <div className="flex flex-col items-center mb-8">
+            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-md mb-4">
+              <Lock className="h-6 w-6 text-white" />
+            </div>
+            <h2 className="text-2xl font-black text-slate-900 tracking-tight">VaultAlert Secure Portal</h2>
+            <p className="text-sm text-slate-500 mt-1">Authenticate to monitor live locker security</p>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-5">
+            {authError && (
+              <div className="p-3 text-xs font-semibold bg-red-50 border border-red-200 text-red-700 rounded-xl flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                {authError}
+              </div>
+            )}
+
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Email Address</label>
+              <input
+                type="email"
+                placeholder="admin@vaultalert.io"
+                value={emailInput}
+                onChange={(e) => setEmailInput(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Password</label>
+              <input
+                type="password"
+                placeholder="••••••••"
+                value={passwordInput}
+                onChange={(e) => setPasswordInput(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-all shadow-md shadow-indigo-600/10 hover:shadow-indigo-600/20 active:scale-[0.98]"
+            >
+              Sign In
+            </button>
+          </form>
+
+          <div className="mt-6 border-t border-slate-100 pt-4 text-center">
+            <span className="text-[11px] text-slate-400">
+              Demo Access: <code className="bg-slate-50 px-1 py-0.5 rounded text-indigo-600 font-mono">admin@vaultalert.io</code> / <code className="bg-slate-50 px-1 py-0.5 rounded text-indigo-600 font-mono">admin</code>
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Render Dashboard if logged in
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans antialiased pb-12 selection:bg-indigo-500 selection:text-white">
-      {/* Soft Light glow effects */}
+      {/* Soft glow effects */}
       <div className="absolute top-0 left-1/4 w-96 h-96 bg-indigo-500/5 rounded-full blur-[100px] pointer-events-none" />
       <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-emerald-500/5 rounded-full blur-[120px] pointer-events-none" />
 
@@ -323,8 +429,8 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Live status pill */}
-        <div className="flex items-center gap-3">
+        {/* Live status & logout */}
+        <div className="flex items-center gap-4">
           <div
             className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all duration-300 ${
               sseConnected
@@ -339,6 +445,14 @@ export default function DashboardPage() {
             />
             {sseConnected ? "Live Connection" : "Connecting..."}
           </div>
+
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 px-3 py-1.5 border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-800 text-xs font-semibold rounded-full transition-all shadow-sm active:scale-[0.98]"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            Logout
+          </button>
         </div>
       </header>
 
