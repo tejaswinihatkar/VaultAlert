@@ -1,0 +1,56 @@
+services:
+  # ── FastAPI Backend ──────────────────────────────────────────────────────────
+  - type: web
+    name: vaultalert-api
+    runtime: python
+    region: singapore
+    plan: free
+    rootDir: backend
+    buildCommand: pip install --upgrade pip && pip install -r requirements-deploy.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_NAME
+        value: VaultAlert
+      - key: DATABASE_URL
+        fromDatabase:
+          name: vaultalert-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: vaultalert-redis
+          type: redis
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "30"
+      - key: REFRESH_TOKEN_EXPIRE_DAYS
+        value: "7"
+      - key: CORS_ORIGINS
+        value: "https://vaultalert.vercel.app,https://frontend-p2oo8mk65-tejaswinihatkars-projects.vercel.app"
+      - key: TELEGRAM_BOT_TOKEN
+        value: "8722120064:AAF6Yshc950N6CksWbLAeMa537zXG8h5ty0"
+      - key: TELEGRAM_CHAT_ID
+        value: "-1004493857137"
+      - key: MQTT_BROKER_HOST
+        value: "broker.hivemq.com"
+      - key: MQTT_BROKER_PORT
+        value: "1883"
+
+  # ── Redis Cache ──────────────────────────────────────────────────────────────
+  - type: redis
+    name: vaultalert-redis
+    region: singapore
+    plan: free
+    maxmemoryPolicy: allkeys-lru
+
+databases:
+  # ── PostgreSQL Database ──────────────────────────────────────────────────────
+  - name: vaultalert-db
+    region: singapore
+    plan: free
+    databaseName: vaultalert
+    user: vaultalert
