@@ -33,32 +33,52 @@ async def lifespan(app: FastAPI):
     logger.info(f"Starting {settings.APP_NAME} — env={settings.APP_ENV}")
 
     # Create all tables (use Alembic in production)
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    logger.info("Database tables verified.")
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("Database tables verified.")
+    except Exception as e:
+        logger.warning(f"DB table creation skipped: {e}")
 
     # Warm up Redis
-    await get_redis()
-    logger.info("Redis connection pool ready.")
+    try:
+        await get_redis()
+        logger.info("Redis connection pool ready.")
+    except Exception as e:
+        logger.warning(f"Redis not available at startup: {e}")
 
     # Start MQTT subscriber as background task
-    mqtt_task = asyncio.create_task(run_mqtt_subscriber())
-    logger.info("MQTT subscriber started.")
+    mqtt_task = None
+    try:
+        mqtt_task = asyncio.create_task(run_mqtt_subscriber())
+        logger.info("MQTT subscriber started.")
+    except Exception as e:
+        logger.warning(f"MQTT subscriber skipped: {e}")
 
     # Start Telegram Polling daemon
-    from app.workers.telegram_worker import start_telegram_listener
-    await start_telegram_listener()
+    try:
+        from app.workers.telegram_worker import start_telegram_listener
+        await start_telegram_listener()
+    except Exception as e:
+        logger.warning(f"Telegram listener skipped: {e}")
 
     yield  # Application runs here
 
     # Graceful shutdown
-    mqtt_task.cancel()
+    if mqtt_task:
+        mqtt_task.cancel()
+        try:
+            await mqtt_task
+        except asyncio.CancelledError:
+            pass
     try:
-        await mqtt_task
-    except asyncio.CancelledError:
+        await close_redis()
+    except Exception:
         pass
-    await close_redis()
-    await engine.dispose()
+    try:
+        await engine.dispose()
+    except Exception:
+        pass
     logger.info(f"{settings.APP_NAME} shutdown complete.")
 
 

@@ -4,15 +4,15 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Web Framework
-fastapi==0.111.0
-uvicorn[standard]==0.29.0
+fastapi==0.115.0
+uvicorn[standard]==0.32.0
 
 # Database (async)
 asyncpg==0.29.0
 SQLAlchemy[asyncio]==2.0.30
 alembic==1.13.1
 
-# Redis
+# Redis (aioredis removed — deprecated, use redis>=5 async API instead)
 redis[hiredis]==5.0.4
 
 # Authentication & Security
@@ -46,8 +46,8 @@ reportlab==4.1.0
 openpyxl==3.1.2
 
 # AI
-Pillow==10.3.0
-google-generativeai==0.5.4
+Pillow==11.0.0
+google-generativeai==0.8.3
 
 # Scheduling
 APScheduler==3.10.4
