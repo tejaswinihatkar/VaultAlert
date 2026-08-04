@@ -1,0 +1,11 @@
+{
+  "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install --legacy-peer-deps",
+  "outputDirectory": ".next",
+  "env": {
+    "NEXT_PUBLIC_API_BASE": "http://localhost:8000",
+    "NEXT_PUBLIC_NTFY_TOPIC": "vaultalert-mia-x9f2k7"
+  }
+}
