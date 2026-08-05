@@ -20,7 +20,7 @@ from app.core.redis_client import close_redis, get_redis
 from app.api.v1 import (
     auth, lockers, analytics, websockets,
     events, access_logs, devices, organizations,
-    users, permissions, notifications, fingerprints, telegram,
+    users, permissions, notifications, fingerprints, telegram, footage,
 )
 
 # ── Background Workers ────────────────────────────────────────────────────────
@@ -127,6 +127,7 @@ def create_app() -> FastAPI:
     app.include_router(notifications.router, prefix="/api/v1")
     app.include_router(fingerprints.router,  prefix="/api/v1")
     app.include_router(telegram.router,      prefix="/api/v1")
+    app.include_router(footage.router,       prefix="/api/v1")  # Telegram footage + events
     app.include_router(websockets.router)  # No prefix — /ws/... endpoints
 
     # ── Health check ──────────────────────────────────────────────────────────
