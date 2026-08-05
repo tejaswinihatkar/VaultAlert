@@ -12,6 +12,7 @@ from app.core.database import AsyncSessionLocal
 from app.models.models import Event, EventType, AlertSeverity, Locker
 from app.services.s3_service import s3_service
 from app.workers.ws_manager import manager as ws_manager
+from app.workers import telegram_cache
 
 # Configure these inside your environment settings
 TELEGRAM_BOT_TOKEN = "8722120064:AAF6Yshc950N6CksWbLAeMa537zXG8h5ty0"
@@ -53,9 +54,10 @@ async def run_telegram_poller():
                 photos = message.get("photo", [])
                 
                 full_text = text or caption
-                
-                # Check if it has any alert details or photos
-                if photos or "alert" in full_text.lower() or "breach" in full_text.lower() or "tamper" in full_text.lower():
+
+                # Process ALL messages that have photos (evidence) OR any text
+                # Previously only filtered for "alert/breach/tamper" — now catches everything
+                if photos or full_text:
                     await process_telegram_msg(client, message, full_text, photos)
                     
         except Exception as e:
@@ -72,17 +74,26 @@ async def process_telegram_msg(client: httpx.AsyncClient, message: dict, text: s
             logger.warning("No locker registered in system to associate Telegram alert.")
             return
 
-        # 1. Download photo if attached
+        # 1. Download photo if attached and cache the URL
         snapshot_url = None
+        photo_url_direct = None
         if photos:
             try:
-                # Grab the largest resolution photo
                 file_id = photos[-1]["file_id"]
                 file_info = await client.get(f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getFile?file_id={file_id}")
                 file_path = file_info.json()["result"]["file_path"]
                 photo_endpoint = f"https://api.telegram.org/file/bot{TELEGRAM_BOT_TOKEN}/{file_path}"
-                
-                # Download bytes
+                photo_url_direct = photo_endpoint
+
+                # Cache the photo for the footage endpoint
+                telegram_cache.add_photo({
+                    "file_id": file_id,
+                    "url": photo_endpoint,
+                    "caption": text or "Security Snapshot",
+                    "date": message.get("date", 0),
+                })
+
+                # Also try to upload to S3
                 img_res = await client.get(photo_endpoint)
                 if img_res.status_code == 200:
                     snapshot_url = await s3_service.upload_snapshot(
@@ -93,6 +104,14 @@ async def process_telegram_msg(client: httpx.AsyncClient, message: dict, text: s
                     )
             except Exception as e:
                 logger.error(f"Failed to download Telegram photo: {e}")
+
+        # Cache text event
+        telegram_cache.add_event({
+            "id": str(message.get("message_id", "")),
+            "time": message.get("date", 0),
+            "message": text or "Security event triggered.",
+            "photo_url": photo_url_direct,
+        })
 
         # 2. Derive event details
         severity = AlertSeverity.critical if ("forced" in text.lower() or "breach" in text.lower()) else AlertSeverity.warning
