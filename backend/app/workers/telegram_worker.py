@@ -106,28 +106,22 @@ async def process_telegram_msg(
     """
     photo_url_direct: str | None = None
 
-    # ── 1. Resolve & cache photo ──────────────────────────────────────────────
+    # ── 1. Cache photo immediately using server proxy URL ─────────────────────
     if photos:
         try:
-            file_id   = photos[-1]["file_id"]
-            file_resp = await client.get(
-                f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getFile?file_id={file_id}",
-                timeout=15.0,
-            )
-            file_path = file_resp.json().get("result", {}).get("file_path")
-            if file_path:
-                photo_url_direct = f"https://api.telegram.org/file/bot{TELEGRAM_BOT_TOKEN}/{file_path}"
+            file_id = photos[-1]["file_id"]
+            photo_url_direct = f"https://vaultalert-api.onrender.com/api/v1/footage/photo/{file_id}"
 
-                # ✅ Cache FIRST — always, no DB dependency
-                telegram_cache.add_photo({
-                    "file_id": file_id,
-                    "url":     photo_url_direct,
-                    "caption": text or "Security Snapshot",
-                    "date":    message.get("date", 0),
-                })
-                logger.info(f"Cached photo: {photo_url_direct}")
+            # ✅ Cache FIRST — zero network calls needed here, browser will load via proxy
+            telegram_cache.add_photo({
+                "file_id": file_id,
+                "url":     photo_url_direct,
+                "caption": text or "Security Snapshot",
+                "date":    message.get("date", 0),
+            })
+            logger.info(f"Cached photo file_id={file_id} with proxy URL: {photo_url_direct}")
         except Exception as e:
-            logger.error(f"Failed to resolve Telegram photo: {e}")
+            logger.error(f"Failed to cache Telegram photo: {e}")
 
     # ── 2. Cache text event ───────────────────────────────────────────────────
     if text or photo_url_direct:
