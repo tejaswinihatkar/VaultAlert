@@ -1,29 +1,40 @@
 """
-VaultAlert — In-Memory Telegram Cache
-Stores the last 100 photos and 200 events received from Telegram.
-The telegram_worker writes to this cache; the footage API reads from it.
+VaultAlert — In-Memory Snapshot & Event Cache
+Stores the last 100 photos and 200 security events (from Telegram & Direct Hardware Camera Uploads).
 """
+import uuid
+import time
 from collections import deque
 from typing import Dict, Any, List
 
-# Thread-safe deques acting as ring buffers
 _photos: deque = deque(maxlen=100)   # List[Dict] — {file_id, url, caption, date}
 _events: deque = deque(maxlen=200)   # List[Dict] — {id, time, message, photo_url}
 
 
-def add_photo(entry: Dict[str, Any]) -> None:
-    """Store a resolved photo entry (with direct URL)."""
-    # Avoid duplicates by file_id
+def add_photo(entry: Dict[str, Any]) -> str:
+    """Store a photo entry (Telegram or Direct Upload). Returns file_id."""
+    file_id = entry.get("file_id") or f"snap_{uuid.uuid4().hex[:12]}"
+    entry["file_id"] = file_id
+    if "date" not in entry:
+        entry["date"] = int(time.time())
+
     existing_ids = {p["file_id"] for p in _photos}
-    if entry["file_id"] not in existing_ids:
+    if file_id not in existing_ids:
         _photos.appendleft(entry)
+    return file_id
 
 
-def add_event(entry: Dict[str, Any]) -> None:
-    """Store a text event entry."""
+def add_event(entry: Dict[str, Any]) -> str:
+    """Store a text event entry. Returns event id."""
+    event_id = entry.get("id") or f"evt_{uuid.uuid4().hex[:12]}"
+    entry["id"] = event_id
+    if "time" not in entry:
+        entry["time"] = int(time.time())
+
     existing_ids = {e["id"] for e in _events}
-    if entry["id"] not in existing_ids:
+    if event_id not in existing_ids:
         _events.appendleft(entry)
+    return event_id
 
 
 def get_photos() -> List[Dict[str, Any]]:

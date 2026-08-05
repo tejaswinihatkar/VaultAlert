@@ -106,6 +106,27 @@ function classifyEvent(raw: RawNtfyMessage): ClassifiedEvent {
       severity: "success",
     };
   }
+  if (msg.startsWith("FACE_CHECK") || msg === "FACE_CHECK") {
+    return {
+      id: raw.id,
+      timestamp,
+      originalMessage: raw.message,
+      type: "face_check",
+      label: "Face Recognition Verification",
+      severity: "info",
+    };
+  }
+  if (msg.startsWith("PHOTO:")) {
+    const photoDetails = msg.replace("PHOTO:", "").trim();
+    return {
+      id: raw.id,
+      timestamp,
+      originalMessage: raw.message,
+      type: "camera_snapshot",
+      label: `Snapshot: ${photoDetails}`,
+      severity: "info",
+    };
+  }
   if (msg === "VaultAlert boot test") {
     return {
       id: raw.id,
@@ -169,7 +190,7 @@ export default function DashboardPage() {
       }
       return response.json();
     },
-    refetchInterval: 10000, // Poll every 10s
+    refetchInterval: 3000, // Poll every 3s as backup to WebSockets
     retry: false,
     enabled: isLoggedIn, // only load when logged in
   });
@@ -233,6 +254,44 @@ export default function DashboardPage() {
 
     loadBacklog();
 
+    // Connect to WebSocket /ws/live-feed for instant real-time pushes
+    let ws: WebSocket | null = null;
+    try {
+      const wsProto = API_BASE.startsWith("https") ? "wss" : "ws";
+      const wsHost = API_BASE.replace(/^https?:\/\//, "");
+      ws = new WebSocket(`${wsProto}://${wsHost}/ws/live-feed`);
+
+      ws.onopen = () => {
+        if (active) setSseConnected(true);
+      };
+
+      ws.onmessage = (msgEvent) => {
+        if (!active) return;
+        try {
+          const payload = JSON.parse(msgEvent.data);
+          if (payload.type === "camera_snapshot" || payload.type === "security_event") {
+            refetchFootage();
+            if (payload.data && payload.data.originalMessage) {
+              const newEvt = classifyEvent({
+                id: payload.data.id || String(Date.now()),
+                time: Math.floor((payload.data.timestamp || Date.now()) / 1000),
+                message: payload.data.originalMessage,
+              });
+              setEvents((prev) => [newEvt, ...prev]);
+            }
+          }
+        } catch (e) {
+          console.error("Failed to parse WS payload:", e);
+        }
+      };
+
+      ws.onerror = () => {
+        if (active) setSseConnected(false);
+      };
+    } catch (wsErr) {
+      console.warn("WebSocket connection init error:", wsErr);
+    }
+
     const eventSource = new EventSource(`https://ntfy.sh/${NTFY_TOPIC}/sse`);
 
     eventSource.onopen = () => {
@@ -240,7 +299,7 @@ export default function DashboardPage() {
     };
 
     eventSource.onerror = () => {
-      if (active) setSseConnected(false);
+      // Don't mark offline if WS is connected
     };
 
     eventSource.onmessage = (event) => {
@@ -263,8 +322,9 @@ export default function DashboardPage() {
     return () => {
       active = false;
       eventSource.close();
+      if (ws) ws.close();
     };
-  }, [isLoggedIn]);
+  }, [isLoggedIn, refetchFootage]);
 
   // Compute Locker State
   const lockerState = useMemo(() => {

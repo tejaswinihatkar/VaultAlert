@@ -25,6 +25,25 @@ async def _authenticate_ws(token: str | None) -> dict | None:
         return None
 
 
+@router.websocket("/ws/live-feed")
+async def live_feed_websocket(websocket: WebSocket):
+    """
+    Public WebSocket endpoint for dashboard real-time security events and camera snapshots.
+    Connect: ws://host/ws/live-feed or wss://host/ws/live-feed
+    """
+    await manager.connect_global(websocket)
+    logger.info("WS client connected to live-feed")
+
+    try:
+        while True:
+            data = await websocket.receive_text()
+            if data == "ping":
+                await websocket.send_text("pong")
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+        logger.info("WS client disconnected from live-feed")
+
+
 @router.websocket("/ws/org/{org_id}")
 async def org_websocket(
     websocket: WebSocket,
@@ -34,12 +53,6 @@ async def org_websocket(
     """
     WebSocket endpoint for organization-wide real-time events.
     Connect: ws://host/ws/org/{org_id}?token={access_token}
-
-    Events pushed:
-    - security_event     (threat detected, door forced, etc.)
-    - device_online      (device came online)
-    - device_offline     (device went offline)
-    - telemetry_update   (batch telemetry summary)
     """
     payload = await _authenticate_ws(token)
     if not payload or payload.get("sub") is None:
@@ -51,7 +64,6 @@ async def org_websocket(
 
     try:
         while True:
-            # Keep alive — client can send pings; we discard data from client
             data = await websocket.receive_text()
             if data == "ping":
                 await websocket.send_text("pong")
@@ -69,12 +81,6 @@ async def locker_websocket(
     """
     WebSocket endpoint for live locker monitoring.
     Connect: ws://host/ws/locker/{locker_id}?token={access_token}
-
-    Events pushed:
-    - telemetry_update   (battery, temp, door state, signal)
-    - security_event     (tamper, motion, fingerprint fail)
-    - device_online
-    - device_offline
     """
     payload = await _authenticate_ws(token)
     if not payload:
