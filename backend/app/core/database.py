@@ -13,8 +13,14 @@ from sqlalchemy.orm import DeclarativeBase
 from app.core.config import settings
 
 # ── Engine ────────────────────────────────────────────────────────────────────
+# Render provides DATABASE_URL as postgresql:// but asyncpg needs postgresql+asyncpg://
+_db_url = settings.DATABASE_URL
+if _db_url.startswith("postgresql://") or _db_url.startswith("postgres://"):
+    _db_url = _db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    _db_url = _db_url.replace("postgres://", "postgresql+asyncpg://", 1)
+
 engine = create_async_engine(
-    settings.DATABASE_URL,
+    _db_url,
     pool_size=settings.DB_POOL_SIZE,
     max_overflow=settings.DB_MAX_OVERFLOW,
     pool_pre_ping=True,  # validates connections on checkout
