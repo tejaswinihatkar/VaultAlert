@@ -75,3 +75,17 @@ coverage.xml
 *.pyc
 *.pyo
 *.pyd
+
+# ─── Mobile app (Capacitor) build outputs ────────────
+frontend/out/
+frontend/android/app/src/main/assets/public/
+frontend/android/local.properties
+frontend/android/.gradle/
+frontend/android/build/
+frontend/android/app/build/
+VaultAlert-debug.apk
+VaultAlert-release.apk
+
+# core dumps
+core
+**/core
