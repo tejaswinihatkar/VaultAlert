@@ -55,12 +55,8 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"MQTT subscriber skipped: {e}")
 
-    # Start Telegram Polling daemon
-    try:
-        from app.workers.telegram_worker import start_telegram_listener
-        await start_telegram_listener()
-    except Exception as e:
-        logger.warning(f"Telegram listener skipped: {e}")
+    # Note: Telegram updates are handled in real-time via Webhook (/api/v1/integrations/telegram/webhook)
+    # Long polling (getUpdates) is intentionally disabled to avoid 409 Webhook conflicts.
 
     yield  # Application runs here
 
