@@ -128,7 +128,16 @@ def create_app() -> FastAPI:
     app.include_router(camera.router,        prefix="/api/v1")  # Direct hardware camera upload
     app.include_router(websockets.router)  # No prefix — /ws/... endpoints
 
-    # ── Health check ──────────────────────────────────────────────────────────
+    # ── Root & Health check ───────────────────────────────────────────────────
+    @app.get("/", tags=["System"], include_in_schema=False)
+    async def root():
+        return {
+            "status": "ok",
+            "app": f"{settings.APP_NAME} API Engine",
+            "docs": "/docs",
+            "health": "/health",
+        }
+
     @app.get("/health", tags=["System"], include_in_schema=False)
     async def health():
         return {"status": "ok", "app": settings.APP_NAME, "env": settings.APP_ENV}
