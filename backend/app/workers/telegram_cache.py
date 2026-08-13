@@ -9,6 +9,17 @@ from typing import Dict, Any, List
 
 _photos: deque = deque(maxlen=100)   # List[Dict] — {file_id, url, caption, date}
 _events: deque = deque(maxlen=200)   # List[Dict] — {id, time, message, photo_url}
+_payloads: deque = deque(maxlen=20)  # List[Dict] — raw webhook payloads for diagnostics
+
+
+def add_payload(payload: Dict[str, Any]) -> None:
+    """Store raw incoming webhook payload for live debugging."""
+    _payloads.appendleft(payload)
+
+
+def get_payloads() -> List[Dict[str, Any]]:
+    """Return the last 20 raw webhook payloads."""
+    return list(_payloads)
 
 
 def add_photo(entry: Dict[str, Any]) -> str:

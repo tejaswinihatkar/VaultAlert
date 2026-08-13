@@ -30,7 +30,7 @@ async def telegram_webhook(request: Request):
     """
     try:
         data = await request.json()
-        logger.info(f"Telegram Webhook received payload update_id={data.get('update_id')}")
+        telegram_cache.add_payload(data)
 
         msg = (
             data.get("message")
@@ -46,14 +46,16 @@ async def telegram_webhook(request: Request):
         chat_id = msg.get("chat", {}).get("id")
         text = msg.get("text", "") or msg.get("caption", "")
         photos = msg.get("photo", [])
+        document = msg.get("document")
+        is_doc_image = document and document.get("mime_type", "").startswith("image/")
 
-        logger.info(f"Telegram Webhook msg from chat_id={chat_id} text='{text[:40]}' photos={len(photos)}")
+        logger.info(f"Telegram Webhook msg from chat_id={chat_id} text='{text[:40]}' photos={len(photos)} doc_image={bool(is_doc_image)}")
 
         file_id = None
         photo_url_direct = None
 
-        if photos:
-            file_id = photos[-1]["file_id"]
+        if photos or is_doc_image:
+            file_id = photos[-1]["file_id"] if photos else document["file_id"]
             photo_url_direct = f"https://vaultalert-api.onrender.com/api/v1/footage/photo/{file_id}"
 
             photo_entry = {
@@ -170,3 +172,9 @@ async def receive_telegram_alert(
     await ws_manager.broadcast_to_locker(locker_id, "security_event", event_data)
 
     return event
+
+
+@router.get("/webhook-logs")
+async def get_webhook_logs():
+    """Return the last 20 raw webhook payloads received for troubleshooting."""
+    return telegram_cache.get_payloads()
