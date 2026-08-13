@@ -47,9 +47,7 @@ async def telegram_webhook(request: Request):
         text = msg.get("text", "") or msg.get("caption", "")
         photos = msg.get("photo", [])
 
-        if chat_id and chat_id != TELEGRAM_CHAT_ID:
-            logger.debug(f"Webhook ignored chat_id={chat_id}")
-            return {"status": "ok", "detail": "chat_id mismatch ignored"}
+        logger.info(f"Telegram Webhook msg from chat_id={chat_id} text='{text[:40]}' photos={len(photos)}")
 
         file_id = None
         photo_url_direct = None
