@@ -24,7 +24,10 @@ import {
 
 // Config - read from env or default to standard values
 const NTFY_TOPIC = process.env.NEXT_PUBLIC_NTFY_TOPIC || "vaultalert-mia-x9f2k7";
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://vaultalert-api.onrender.com";
 
 interface RawNtfyMessage {
   id: string;

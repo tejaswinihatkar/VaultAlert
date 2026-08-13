@@ -72,8 +72,10 @@ class Settings(BaseSettings):
     AI_FACE_CONFIDENCE_THRESHOLD: float = 0.85
     AI_THREAT_SCORE_ALERT_LEVEL: float = 0.70
 
-    # ── CORS ──────────────────────────────────────────────────────────────────
-    CORS_ORIGINS: str = "http://localhost:3000"
+    CORS_ORIGINS: str = (
+        "http://localhost:3000,http://localhost:8000,http://localhost,"
+        "https://localhost,capacitor://localhost,https://vaultalert.vercel.app"
+    )
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod

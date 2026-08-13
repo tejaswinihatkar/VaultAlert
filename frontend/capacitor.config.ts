@@ -5,6 +5,10 @@ const config: CapacitorConfig = {
   appName: "VaultAlert",
   // Next.js static export lands in ./out; Capacitor bundles it into the APK.
   webDir: "out",
+  server: {
+    androidScheme: "https",
+    cleartext: true,
+  },
 };
 
 export default config;
