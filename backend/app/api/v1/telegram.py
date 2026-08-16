@@ -126,6 +126,7 @@ async def receive_telegram_alert(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid integration token.")
 
     snapshot_url = None
+    photo_bytes = None
     if photo:
         photo_bytes = await photo.read()
         snapshot_url = await s3_service.upload_snapshot(
@@ -170,6 +171,25 @@ async def receive_telegram_alert(
     }
     
     await ws_manager.broadcast_to_locker(locker_id, "security_event", event_data)
+
+    # ── Forward to Telegram Group Chat in Real-Time ──
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            if photo_bytes:
+                await client.post(
+                    f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto",
+                    data={"chat_id": TELEGRAM_CHAT_ID, "caption": description},
+                    files={"photo": (photo.filename or "snapshot.jpg", photo_bytes, photo.content_type or "image/jpeg")}
+                )
+                logger.info(f"Forwarded photo alert to Telegram chat {TELEGRAM_CHAT_ID}")
+            else:
+                await client.post(
+                    f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
+                    json={"chat_id": TELEGRAM_CHAT_ID, "text": description}
+                )
+                logger.info(f"Forwarded text alert to Telegram chat {TELEGRAM_CHAT_ID}")
+    except Exception as tg_err:
+        logger.error(f"Failed to forward alert to Telegram: {tg_err}")
 
     return event
 
