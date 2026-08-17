@@ -98,6 +98,113 @@ async def telegram_webhook(request: Request):
         return {"status": "error", "detail": str(e)}
 
 
+@router.post("/bot{bot_token}/{method}")
+async def telegram_api_proxy(
+    bot_token: str,
+    method: str,
+    request: Request
+):
+    """
+    Drop-in HTTP Proxy for Telegram Bot API.
+    Intercepts hardware camera uploads, displays them on website instantly (< 100ms),
+    and forwards the request to Telegram Group Chat.
+    """
+    import base64
+    content_type = request.headers.get("content-type", "")
+    
+    text = ""
+    photo_bytes = None
+    photo_name = "snapshot.jpg"
+    photo_mime = "image/jpeg"
+    
+    # 1. Parse payload for dashboard caching
+    try:
+        if "multipart/form-data" in content_type:
+            form = await request.form()
+            text = form.get("caption", "") or form.get("text", "")
+            photo_file = form.get("photo")
+            if photo_file and hasattr(photo_file, "read"):
+                photo_bytes = await photo_file.read()
+                photo_name = getattr(photo_file, "filename", "snapshot.jpg")
+                photo_mime = getattr(photo_file, "content_type", "image/jpeg")
+        elif "application/json" in content_type:
+            body = await request.json()
+            text = body.get("caption", "") or body.get("text", "")
+    except Exception as parse_err:
+        logger.warning(f"Proxy parsing warning: {parse_err}")
+
+    # 2. Push to local cache & WebSocket instantly
+    if photo_bytes or text:
+        file_id = f"proxy_{int(time.time())}"
+        data_url = None
+        
+        if photo_bytes:
+            b64 = base64.b64encode(photo_bytes).decode("utf-8")
+            data_url = f"data:{photo_mime};base64,{b64}"
+            
+            telegram_cache.add_photo({
+                "file_id": file_id,
+                "url": data_url,
+                "caption": text or "Hardware Alert Snapshot",
+                "date": int(time.time()),
+            })
+            
+            await ws_manager.broadcast_global("camera_snapshot", {
+                "file_id": file_id,
+                "url": data_url,
+                "caption": text or "Hardware Alert Snapshot",
+                "timestamp": int(time.time() * 1000),
+            })
+
+        evt_id = f"evt_{int(time.time())}"
+        telegram_cache.add_event({
+            "id": evt_id,
+            "time": int(time.time()),
+            "message": text or "Security snapshot captured.",
+            "photo_url": data_url,
+        })
+        
+        await ws_manager.broadcast_global("security_event", {
+            "id": evt_id,
+            "originalMessage": text or "Security snapshot captured.",
+            "timestamp": int(time.time() * 1000),
+            "photo_url": data_url,
+        })
+        logger.info("Interceded hardware Telegram request: pushed to live dashboard.")
+
+    # 3. Forward payload to Telegram Bot API
+    from fastapi import Response
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        url = f"https://api.telegram.org/bot{bot_token}/{method}"
+        try:
+            if "multipart/form-data" in content_type:
+                form = await request.form()
+                data_dict = {}
+                files_dict = {}
+                for k, v in form.items():
+                    if k == "photo" and photo_bytes:
+                        files_dict[k] = (photo_name, photo_bytes, photo_mime)
+                    else:
+                        data_dict[k] = v
+                r = await client.post(url, data=data_dict, files=files_dict)
+            elif "application/json" in content_type:
+                body = await request.json()
+                r = await client.post(url, json=body)
+            else:
+                body_raw = await request.body()
+                r = await client.post(url, content=body_raw)
+
+            # Return Telegram's exact response back to the hardware
+            return Response(
+                content=r.content,
+                status_code=r.status_code,
+                headers={"Content-Type": r.headers.get("Content-Type", "application/json")}
+            )
+        except Exception as forward_err:
+            logger.error(f"Failed to forward request to Telegram: {forward_err}")
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Failed to forward to Telegram API")
+
+
 @router.post("/setup-webhook")
 async def setup_telegram_webhook():
     """
