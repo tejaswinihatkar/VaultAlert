@@ -229,7 +229,7 @@ async def receive_telegram_alert(
     photo: UploadFile = File(None),
     db: AsyncSession = Depends(get_db),
 ):
-    if x_telegram_bot_token != settings.SECRET_KEY:
+    if x_telegram_bot_token not in (settings.SECRET_KEY, TELEGRAM_BOT_TOKEN):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid integration token.")
 
     snapshot_url = None
