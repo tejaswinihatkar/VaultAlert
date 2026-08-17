@@ -157,7 +157,11 @@ MQTT_USERNAME=
 MQTT_PASSWORD=
 
 # Telegram Integration
-TELEGRAM_BOT_TOKEN=8722120064:AAF6Yshc950N6CksWbLAeMa537zXG8h5ty0
+# Hardware Bot Token (used by hardware module to post)
+TELEGRAM_HARDWARE_BOT_TOKEN=8722120064:AAF6Yshc950N6CksWbLAeMa537zXG8h5ty0
+
+# Reader Bot Token (used by website backend to listen for alerts via Webhook)
+TELEGRAM_BOT_TOKEN=8800613295:AAGe5LKW_5Hzig818_cvWztSximM8iQOXqI
 TELEGRAM_CHAT_ID=-1004493857137
 
 # AWS S3 (optional — uses mock if not configured)
@@ -250,21 +254,18 @@ Frontend will be available at: **`http://localhost:3000`**
 
 ---
 
-## 📡 Telegram Bot Integration
+## 📡 Telegram Bot Integration (Reader Bot Architecture)
 
-The Telegram polling worker automatically connects to your Telegram group. When a message containing an alert keyword (`alert`, `breach`, `tamper`) or a photo is posted in the group, it:
+To allow the web dashboard to capture photos and alerts sent by the hardware module without modifying the hardware code, VaultAlert uses a **Dual-Bot Reader Helper** setup. This bypasses the Telegram Bot API's restriction where a bot cannot receive its own messages.
 
-1. Downloads the image from Telegram servers
-2. Uploads it to S3 storage
-3. Saves the event to the database
-4. Broadcasts it **live** to the VaultAlert dashboard
+1. **Hardware Bot (`@VaultAlert_123bot`)**: Used by your hardware camera/microcontroller to post images and text alerts to the Telegram group chat.
+2. **Reader Bot (`@VaultAlert_Reader_bot`)**: Added to the same group chat with Group Privacy disabled (or as Admin). The website backend binds its webhook to this Reader Bot. When the Hardware Bot posts a photo, the Reader Bot instantly captures it and streams it to the dashboard.
 
-### Webhook Mode (Alternative)
-To push from Telegram directly to your server, set the webhook URL once:
+### Webhook Setup
+To register/refresh the webhook on the Reader Bot, trigger the helper endpoint once after backend start:
 
 ```bash
-curl -X POST "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook" \
-  -d "url=https://your-domain.com/api/v1/integrations/telegram/alert"
+curl -X POST "https://vaultalert-api.onrender.com/api/v1/integrations/telegram/setup-webhook"
 ```
 
 ---
