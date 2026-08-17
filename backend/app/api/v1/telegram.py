@@ -17,7 +17,7 @@ from app.schemas.schemas import EventResponse
 
 router = APIRouter(prefix="/integrations/telegram", tags=["Telegram Integration"])
 
-TELEGRAM_BOT_TOKEN = "8722120064:AAF6Yshc950N6CksWbLAeMa537zXG8h5ty0"
+TELEGRAM_BOT_TOKEN = "8800613295:AAGe5LKW_5Hzig818_cvWztSximM8iQOXqI"
 TELEGRAM_CHAT_ID = -1004493857137
 
 

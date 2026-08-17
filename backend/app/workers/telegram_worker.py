@@ -15,7 +15,7 @@ from app.workers.ws_manager import manager as ws_manager
 from app.workers import telegram_cache
 
 # ── Config ────────────────────────────────────────────────────────────────────
-TELEGRAM_BOT_TOKEN = "8722120064:AAF6Yshc950N6CksWbLAeMa537zXG8h5ty0"
+TELEGRAM_BOT_TOKEN = "8800613295:AAGe5LKW_5Hzig818_cvWztSximM8iQOXqI"
 TELEGRAM_CHAT_ID   = -1004493857137   # supergroup / channel ID
 
 
