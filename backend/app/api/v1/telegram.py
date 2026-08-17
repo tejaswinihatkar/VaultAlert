@@ -111,25 +111,30 @@ async def telegram_api_proxy(
     """
     import base64
     content_type = request.headers.get("content-type", "")
-    
+
     text = ""
     photo_bytes = None
     photo_name = "snapshot.jpg"
     photo_mime = "image/jpeg"
-    
-    # 1. Parse payload for dashboard caching
+    form_fields: dict = {}   # non-photo form fields, captured once for re-forwarding
+
+    # 1. Parse payload for dashboard caching.
+    # NOTE: request.form()/body() can only be consumed ONCE — read it here and
+    # reuse the captured values when forwarding to Telegram below.
     try:
         if "multipart/form-data" in content_type:
             form = await request.form()
-            text = form.get("caption", "") or form.get("text", "")
-            photo_file = form.get("photo")
-            if photo_file and hasattr(photo_file, "read"):
-                photo_bytes = await photo_file.read()
-                photo_name = getattr(photo_file, "filename", "snapshot.jpg")
-                photo_mime = getattr(photo_file, "content_type", "image/jpeg")
+            for k, v in form.items():
+                if k == "photo" and hasattr(v, "read"):
+                    photo_bytes = await v.read()
+                    photo_name = getattr(v, "filename", "snapshot.jpg")
+                    photo_mime = getattr(v, "content_type", "image/jpeg")
+                else:
+                    form_fields[k] = v
+            text = form_fields.get("caption", "") or form_fields.get("text", "")
         elif "application/json" in content_type:
-            body = await request.json()
-            text = body.get("caption", "") or body.get("text", "")
+            form_fields = await request.json()
+            text = form_fields.get("caption", "") or form_fields.get("text", "")
     except Exception as parse_err:
         logger.warning(f"Proxy parsing warning: {parse_err}")
 
@@ -172,27 +177,21 @@ async def telegram_api_proxy(
         })
         logger.info("Interceded hardware Telegram request: pushed to live dashboard.")
 
-    # 3. Forward payload to Telegram Bot API
+    # 3. Forward payload to Telegram Bot API — reuse the ALREADY-parsed values
+    #    (the request stream is consumed; do not re-read request.form()/json()).
     from fastapi import Response
     async with httpx.AsyncClient(timeout=30.0) as client:
         url = f"https://api.telegram.org/bot{bot_token}/{method}"
         try:
             if "multipart/form-data" in content_type:
-                form = await request.form()
-                data_dict = {}
                 files_dict = {}
-                for k, v in form.items():
-                    if k == "photo" and photo_bytes:
-                        files_dict[k] = (photo_name, photo_bytes, photo_mime)
-                    else:
-                        data_dict[k] = v
-                r = await client.post(url, data=data_dict, files=files_dict)
+                if photo_bytes:
+                    files_dict["photo"] = (photo_name, photo_bytes, photo_mime)
+                r = await client.post(url, data=form_fields, files=files_dict)
             elif "application/json" in content_type:
-                body = await request.json()
-                r = await client.post(url, json=body)
+                r = await client.post(url, json=form_fields)
             else:
-                body_raw = await request.body()
-                r = await client.post(url, content=body_raw)
+                r = await client.post(url, content=await request.body())
 
             # Return Telegram's exact response back to the hardware
             return Response(

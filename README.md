@@ -254,15 +254,47 @@ Frontend will be available at: **`http://localhost:3000`**
 
 ---
 
-## 📡 Telegram Bot Integration (Reader Bot Architecture)
+## 📡 Telegram Bot Integration
 
-To allow the web dashboard to capture photos and alerts sent by the hardware module without modifying the hardware code, VaultAlert uses a **Dual-Bot Reader Helper** setup. This bypasses the Telegram Bot API's restriction where a bot cannot receive its own messages.
+> **Important — Telegram limitation.** A Telegram bot can **never** receive
+> updates for messages posted by *another bot*, and can't `getFile` on another
+> bot's uploads — **not even as group admin or with privacy disabled.** Admin
+> rights only expose messages from *human* members. This is why alerts/images
+> sent by the hardware bot never reached the dashboard.
 
-1. **Hardware Bot (`@VaultAlert_123bot`)**: Used by your hardware camera/microcontroller to post images and text alerts to the Telegram group chat.
-2. **Reader Bot (`@VaultAlert_Reader_bot`)**: Added to the same group chat with Group Privacy disabled (or as Admin). The website backend binds its webhook to this Reader Bot. When the Hardware Bot posts a photo, the Reader Bot instantly captures it and streams it to the dashboard.
+### ✅ Recommended: API-Proxy ingestion (works around the bot-read limit)
 
-### Webhook Setup
-To register/refresh the webhook on the Reader Bot, trigger the helper endpoint once after backend start:
+Point the hardware at the backend **instead of** `api.telegram.org`. The backend
+sees every upload first-hand (instant dashboard push over WebSocket) and then
+forwards it on to the Telegram group. No Telegram bot-read restriction applies.
+
+**The only change on the ESP32 / microcontroller** — swap the base URL:
+
+| | Base URL |
+|---|---|
+| Before | `https://api.telegram.org` |
+| After  | `https://vaultalert-api.onrender.com/api/v1/integrations/telegram` |
+
+Keep the same path and payload, e.g.:
+
+```
+POST https://vaultalert-api.onrender.com/api/v1/integrations/telegram/bot<HARDWARE_BOT_TOKEN>/sendPhoto
+     (multipart:  chat_id, caption, photo=@snapshot.jpg)
+```
+
+The proxy at `POST /integrations/telegram/bot{bot_token}/{method}` caches the
+photo/alert, broadcasts it live, and transparently relays your request to
+Telegram — so the group chat still receives the message exactly as before.
+
+Alternatively, hardware can post **directly** (no Telegram round-trip) to:
+- `POST /api/v1/camera/snapshot` — multipart JPEG
+- `POST /api/v1/camera/snapshot-base64` — JSON base64 (low-spec boards)
+
+### Legacy: Dual-Bot Reader webhook
+
+A second **Reader Bot** in the group was the previous attempt, but Telegram's
+bot-to-bot rule means it still cannot see the Hardware Bot's own posts — use the
+API-Proxy path above instead. To (re)register a webhook if you still use it:
 
 ```bash
 curl -X POST "https://vaultalert-api.onrender.com/api/v1/integrations/telegram/setup-webhook"
