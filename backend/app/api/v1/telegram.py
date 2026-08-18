@@ -12,6 +12,7 @@ from app.core.config import settings
 from app.services.s3_service import s3_service
 from app.workers.ws_manager import manager as ws_manager
 from app.workers import telegram_cache
+from app.services import history_service
 from app.models.models import Event, EventType, AlertSeverity
 from app.schemas.schemas import EventResponse
 
@@ -97,6 +98,12 @@ async def telegram_webhook(request: Request):
                 "timestamp": msg.get("date", int(time.time())) * 1000,
                 "photo_url": photo_url_direct,
             })
+
+            # Persist to DB for historical/timestamped view (best-effort, non-blocking).
+            import asyncio
+            asyncio.create_task(history_service.persist_alert(
+                text or "Security snapshot captured.", photo_url_direct
+            ))
 
         return {"status": "ok", "processed": True, "has_photo": bool(photos)}
 

@@ -491,6 +491,14 @@ export default function DashboardPage() {
             {sseConnected ? "Live Connection" : "Connecting..."}
           </div>
 
+          <a
+            href="/history"
+            className="flex items-center gap-2 px-3 py-1.5 border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-800 text-xs font-semibold rounded-full transition-all shadow-sm active:scale-[0.98]"
+          >
+            <Clock className="h-3.5 w-3.5" />
+            History
+          </a>
+
           <button
             onClick={handleLogout}
             className="flex items-center gap-2 px-3 py-1.5 border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-800 text-xs font-semibold rounded-full transition-all shadow-sm active:scale-[0.98]"

@@ -14,6 +14,7 @@ broadcast to the dashboard, never re-sent to Telegram.
 
 import time
 import base64
+import asyncio
 from typing import Optional
 from fastapi import APIRouter, File, UploadFile, Form, HTTPException, status
 from pydantic import BaseModel
@@ -21,6 +22,7 @@ from loguru import logger
 
 from app.workers import telegram_cache
 from app.workers.ws_manager import manager as ws_manager
+from app.services import history_service
 
 router = APIRouter(tags=["Camera Ingestion"])
 
@@ -83,6 +85,9 @@ async def upload_camera_snapshot(
         }
         await ws_manager.broadcast_global("camera_snapshot", broadcast_data)
 
+        # Persist to DB for historical/timestamped view (best-effort, non-blocking).
+        asyncio.create_task(history_service.persist_alert(f"PHOTO: {caption}", data_url))
+
         logger.info(f"Direct camera snapshot received from {device_id}: cached and broadcasted.")
         return {
             "status": "success",
@@ -141,6 +146,9 @@ async def upload_camera_snapshot_base64(payload: Base64SnapshotPayload):
             "device_id": payload.device_id,
         }
         await ws_manager.broadcast_global("camera_snapshot", broadcast_data)
+
+        # Persist to DB for historical/timestamped view (best-effort, non-blocking).
+        asyncio.create_task(history_service.persist_alert(f"PHOTO: {payload.caption}", data_url))
 
         return {
             "status": "success",
