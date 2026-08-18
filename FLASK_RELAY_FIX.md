@@ -1,16 +1,20 @@
-# Flask relay (`app.py`) — forward camera photos to the VaultAlert dashboard
+# Flask face server (`app_face_recognition.py`) — forward camera photos to the dashboard
 
-Send this to the teammate running `app.py` (the laptop at `10.194.218.222:5000`).
-Their `app.py` already receives the ESP32-CAM's JPEG in `/recognize` and saves it as
-`last_received.jpg`. We just forward that same photo to the VaultAlert backend so it
-shows under **Live Security Footage** on the dashboard.
+> You are running **`app_face_recognition.py`** (the dlib/face_recognition version),
+> not `app.py`. It has the **same** `/recognize` and `/relay` routes, so the edits
+> below apply identically — just to this file.
 
-**No new dependency** — uses Python's built-in `urllib` (their `requirements.txt` has
-only flask/opencv/numpy).
+Send this to the teammate running the face server (the laptop at `10.194.218.222:5000`).
+It already receives the ESP32-CAM's JPEG in `/recognize` and saves it as
+`last_received.jpg` (line 235). We just forward that same photo to the VaultAlert
+backend so it shows under **Live Security Footage** on the dashboard.
+
+**No new dependency** — uses Python's built-in `urllib` (no need to touch their
+`face_recognition`/opencv install).
 
 ---
 
-## Change 1 — add this helper near the top of `app.py` (after the imports, ~line 25)
+## Change 1 — add this helper near the top (after the imports, ~line 50)
 
 ```python
 import urllib.request, uuid  # add to the existing imports
@@ -42,7 +46,7 @@ def forward_to_vaultalert(jpeg_bytes, caption="Security Snapshot"):
         print("VaultAlert forward failed:", e)
 ```
 
-## Change 2 — call it inside `/recognize`, right after the image is saved (line 219)
+## Change 2 — call it inside `/recognize`, right after the image is saved (line 235)
 
 Find this line:
 ```python
