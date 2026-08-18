@@ -49,6 +49,13 @@ async def telegram_webhook(request: Request):
         document = msg.get("document")
         is_doc_image = document and document.get("mime_type", "").startswith("image/")
 
+        # Both bots (hardware + reader) have a webhook on this same URL, so Telegram
+        # delivers each group message once PER bot — same message_id/date, different
+        # update_id. Dedupe on the message identity so one photo is cached once.
+        msg_key = f"{chat_id}:{msg.get('message_id')}:{msg.get('date')}"
+        if telegram_cache.seen_message(msg_key):
+            return {"status": "ok", "detail": "duplicate delivery", "deduped": True}
+
         logger.info(f"Telegram Webhook msg from chat_id={chat_id} text='{text[:40]}' photos={len(photos)} doc_image={bool(is_doc_image)}")
 
         file_id = None

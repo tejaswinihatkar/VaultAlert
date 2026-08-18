@@ -11,6 +11,20 @@ from typing import Dict, Any, List
 _photos: deque = deque(maxlen=100)   # List[Dict] — {file_id, url, caption, date}
 _events: deque = deque(maxlen=200)   # List[Dict] — {id, time, message, photo_url}
 _payloads: deque = deque(maxlen=20)  # List[Dict] — raw webhook payloads for diagnostics
+_seen_messages: deque = deque(maxlen=500)  # message keys already processed (webhook dedupe)
+
+
+def seen_message(key: str) -> bool:
+    """Return True if this Telegram message key was already processed (and record it).
+
+    Telegram delivers the same group message once per bot that has a webhook on the
+    URL, so the webhook fires twice for one photo. Keying on chat:message_id:date
+    lets us drop the duplicate delivery.
+    """
+    if key in _seen_messages:
+        return True
+    _seen_messages.append(key)
+    return False
 
 
 def add_payload(payload: Dict[str, Any]) -> None:
