@@ -132,6 +132,11 @@ async def telegram_api_proxy(
                 else:
                     form_fields[k] = v
             text = form_fields.get("caption", "") or form_fields.get("text", "")
+        elif "application/x-www-form-urlencoded" in content_type:
+            form = await request.form()
+            for k, v in form.items():
+                form_fields[k] = v
+            text = form_fields.get("caption", "") or form_fields.get("text", "")
         elif "application/json" in content_type:
             form_fields = await request.json()
             text = form_fields.get("caption", "") or form_fields.get("text", "")
@@ -188,10 +193,13 @@ async def telegram_api_proxy(
                 if photo_bytes:
                     files_dict["photo"] = (photo_name, photo_bytes, photo_mime)
                 r = await client.post(url, data=form_fields, files=files_dict)
+            elif "application/x-www-form-urlencoded" in content_type:
+                r = await client.post(url, data=form_fields)
             elif "application/json" in content_type:
                 r = await client.post(url, json=form_fields)
             else:
-                r = await client.post(url, content=await request.body())
+                # Forward raw body but preserve the Content-Type header so Telegram parses it correctly
+                r = await client.post(url, content=await request.body(), headers={"Content-Type": content_type})
 
             # Return Telegram's exact response back to the hardware
             return Response(
@@ -228,7 +236,7 @@ async def receive_telegram_alert(
     photo: UploadFile = File(None),
     db: AsyncSession = Depends(get_db),
 ):
-    if x_telegram_bot_token not in (settings.SECRET_KEY, TELEGRAM_BOT_TOKEN):
+    if x_telegram_bot_token != settings.SECRET_KEY:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid integration token.")
 
     snapshot_url = None
