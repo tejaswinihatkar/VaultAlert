@@ -89,3 +89,7 @@ VaultAlert-release.apk
 # core dumps
 core
 **/core
+
+# Telegram userbot session (private login — never commit)
+*.session
+*.session-journal
