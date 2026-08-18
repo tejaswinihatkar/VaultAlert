@@ -1,13 +1,19 @@
 """
 VaultAlert — Direct Camera Ingestion Router
 Allows hardware camera modules (e.g. ESP32-CAM) to upload JPEG snapshots directly over HTTP.
-Instantly broadcasts incoming frames to frontend clients via WebSockets (< 100ms latency),
-and forwards the alert image directly to the Telegram group chat.
+Instantly broadcasts incoming frames to frontend clients via WebSockets (< 100ms latency).
+
+NOTE: This endpoint no longer forwards snapshots back to the Telegram group.
+It used to call Telegram's sendPhoto after caching each snapshot, which created
+an infinite loop with iot/userbot_reader.py: userbot forwards a Telegram photo
+here -> this endpoint re-posts it to Telegram -> userbot sees that as a new
+message -> forwards it here again -> forever. Snapshots that arrive here (from
+the ESP32-CAM directly, or via userbot_reader.py) are now only cached and
+broadcast to the dashboard, never re-sent to Telegram.
 """
 
 import time
 import base64
-import httpx
 from typing import Optional
 from fastapi import APIRouter, File, UploadFile, Form, HTTPException, status
 from pydantic import BaseModel
@@ -17,9 +23,6 @@ from app.workers import telegram_cache
 from app.workers.ws_manager import manager as ws_manager
 
 router = APIRouter(tags=["Camera Ingestion"])
-
-TELEGRAM_BOT_TOKEN = "8722120064:AAF6Yshc950N6CksWbLAeMa537zXG8h5ty0"
-TELEGRAM_CHAT_ID   = -1004493857137
 
 
 class Base64SnapshotPayload(BaseModel):
@@ -37,8 +40,9 @@ async def upload_camera_snapshot(
     event_type: str = Form("camera_snapshot"),
 ):
     """
-    Direct HTTP upload for ESP32-CAM / Hardware Camera modules.
-    Accepts multipart JPEG file, caches it, streams via WebSockets, and forwards to Telegram group.
+    Direct HTTP upload for ESP32-CAM / Hardware Camera modules, and for the
+    Telegram userbot relay. Accepts multipart JPEG file, caches it, and
+    streams it to connected dashboard clients via WebSockets.
     """
     if not file:
         raise HTTPException(
@@ -79,23 +83,11 @@ async def upload_camera_snapshot(
         }
         await ws_manager.broadcast_global("camera_snapshot", broadcast_data)
 
-        # ── Forward to Telegram Group Chat ──
-        try:
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                await client.post(
-                    f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto",
-                    data={"chat_id": TELEGRAM_CHAT_ID, "caption": caption},
-                    files={"photo": (file.filename or "snapshot.jpg", contents, mime)}
-                )
-                logger.info(f"Forwarded direct camera snapshot to Telegram chat {TELEGRAM_CHAT_ID}")
-        except Exception as tg_err:
-            logger.error(f"Failed to forward direct snapshot to Telegram: {tg_err}")
-
-        logger.info(f"Direct camera snapshot received from {device_id}: broadcasted and forwarded.")
+        logger.info(f"Direct camera snapshot received from {device_id}: cached and broadcasted.")
         return {
             "status": "success",
             "file_id": file_id,
-            "message": "Snapshot cached, streamed via WebSocket, and forwarded to Telegram.",
+            "message": "Snapshot cached and streamed via WebSocket.",
         }
 
     except Exception as e:
@@ -150,22 +142,10 @@ async def upload_camera_snapshot_base64(payload: Base64SnapshotPayload):
         }
         await ws_manager.broadcast_global("camera_snapshot", broadcast_data)
 
-        # ── Forward to Telegram Group Chat ──
-        try:
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                await client.post(
-                    f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto",
-                    data={"chat_id": TELEGRAM_CHAT_ID, "caption": payload.caption},
-                    files={"photo": ("snapshot.jpg", raw_bytes, mime)}
-                )
-                logger.info(f"Forwarded base64 camera snapshot to Telegram chat {TELEGRAM_CHAT_ID}")
-        except Exception as tg_err:
-            logger.error(f"Failed to forward base64 snapshot to Telegram: {tg_err}")
-
         return {
             "status": "success",
             "file_id": file_id,
-            "message": "Snapshot cached, streamed via WebSocket, and forwarded to Telegram.",
+            "message": "Snapshot cached and streamed via WebSocket.",
         }
 
     except Exception as e:
