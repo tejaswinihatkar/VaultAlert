@@ -4,8 +4,9 @@ VaultAlert — Telegram Userbot Reader (logs in as YOUR account)
 Why this exists: a Telegram *bot* can never read another bot's messages, so the
 hardware bot's alerts never reach the dashboard. A *human account* CAN read them.
 This script logs in as your own Telegram account, silently watches the Vault Alert
-group, and forwards every new photo to the VaultAlert backend so it shows up on
-the dashboard — with ZERO changes to the ESP32 hardware.
+group, and forwards every new photo AND text alert (e.g. "Unauthorized fingerprint!")
+to the VaultAlert backend so they show up on the dashboard in real time — with ZERO
+changes to the ESP32 hardware.
 
 It only READS the group and POSTs to your backend. It never sends or posts anything
 in Telegram.
@@ -89,19 +90,19 @@ def push_photo(jpeg_bytes: bytes, caption: str) -> None:
 
 
 def push_text(text: str) -> None:
-    """
-    Send a text-only alert to the dashboard via the SAFE /camera/text-alert
-    endpoint. Unlike the old approach, this endpoint only writes to the
-    dashboard's in-memory cache and broadcasts over WebSocket — it never
-    calls the Telegram API, so it cannot recreate the repost loop.
+    """Send a hardware text alert (e.g. 'Unauthorized fingerprint!') to the dashboard.
+
+    Posts to the backend's text-ingest endpoint, which caches it as an event for the
+    timeline. This does NOT re-post into Telegram (that endpoint only caches +
+    broadcasts), so it can't cause the old echo loop.
     """
     try:
         r = requests.post(
-            f"{VA_API_BASE}/camera/text-alert",
-            json={"title": text, "user": "", "extra": "", "device_id": "telegram_userbot"},
-            timeout=15,
+            f"{VA_API_BASE}/telegram-text",
+            json={"message": text},
+            timeout=20,
         )
-        print(f"  → text pushed [{r.status_code}] '{text[:40]}'")
+        print(f"  → text pushed [{r.status_code}] '{text[:50]}'")
     except Exception as e:
         print("  ! text push failed:", e)
 
@@ -113,7 +114,16 @@ async def on_group_message(event):
 
     print(f"[seen] id={msg.id} from={msg.sender_id} has_photo={bool(msg.photo)} text={caption[:50]!r}")
 
-    # Photo (or image document) → forward the actual bytes, caption included.
+    now = time.time()
+
+    def is_duplicate(key: str) -> bool:
+        last = _recent_hashes.get(key)
+        if last and (now - last) < DEDUPE_WINDOW_SECONDS:
+            return True
+        _recent_hashes[key] = now
+        return False
+
+    # Photo (or image document) → forward the actual bytes to the footage grid.
     if msg.photo or (msg.document and (msg.document.mime_type or "").startswith("image/")):
         try:
             data = await msg.download_media(bytes)
@@ -122,27 +132,20 @@ async def on_group_message(event):
             return
 
         content_hash = hashlib.sha256(data + caption.encode()).hexdigest()
-        now = time.time()
-        last_seen = _recent_hashes.get(content_hash)
-        if last_seen and (now - last_seen) < DEDUPE_WINDOW_SECONDS:
-            print(f"  (duplicate content within {DEDUPE_WINDOW_SECONDS}s, skipping)")
+        if is_duplicate(content_hash):
+            print(f"  (duplicate photo within {DEDUPE_WINDOW_SECONDS}s, skipping)")
             return
-        _recent_hashes[content_hash] = now
-
         push_photo(data, caption or "Security Snapshot")
         return
 
-    # Text-only alert (no photo attached) → forward via the safe endpoint.
+    # Text-only alert (e.g. hardware "Unauthorized fingerprint!") → forward to timeline.
     if caption:
-        content_hash = hashlib.sha256(caption.encode()).hexdigest()
-        now = time.time()
-        last_seen = _recent_hashes.get(content_hash)
-        if last_seen and (now - last_seen) < DEDUPE_WINDOW_SECONDS:
+        text_hash = hashlib.sha256(("TEXT:" + caption).encode()).hexdigest()
+        if is_duplicate(text_hash):
             print(f"  (duplicate text within {DEDUPE_WINDOW_SECONDS}s, skipping)")
             return
-        _recent_hashes[content_hash] = now
-
         push_text(caption)
+        return
 
 
 def main():

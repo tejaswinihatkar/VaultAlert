@@ -12,6 +12,7 @@ from app.core.config import settings
 from app.services.s3_service import s3_service
 from app.workers.ws_manager import manager as ws_manager
 from app.workers import telegram_cache
+from app.services import history_service
 from app.models.models import Event, EventType, AlertSeverity
 from app.schemas.schemas import EventResponse
 
@@ -48,6 +49,13 @@ async def telegram_webhook(request: Request):
         photos = msg.get("photo", [])
         document = msg.get("document")
         is_doc_image = document and document.get("mime_type", "").startswith("image/")
+
+        # Both bots (hardware + reader) have a webhook on this same URL, so Telegram
+        # delivers each group message once PER bot — same message_id/date, different
+        # update_id. Dedupe on the message identity so one photo is cached once.
+        msg_key = f"{chat_id}:{msg.get('message_id')}:{msg.get('date')}"
+        if telegram_cache.seen_message(msg_key):
+            return {"status": "ok", "detail": "duplicate delivery", "deduped": True}
 
         logger.info(f"Telegram Webhook msg from chat_id={chat_id} text='{text[:40]}' photos={len(photos)} doc_image={bool(is_doc_image)}")
 
@@ -90,6 +98,12 @@ async def telegram_webhook(request: Request):
                 "timestamp": msg.get("date", int(time.time())) * 1000,
                 "photo_url": photo_url_direct,
             })
+
+            # Persist to DB for historical/timestamped view (best-effort, non-blocking).
+            import asyncio
+            asyncio.create_task(history_service.persist_alert(
+                text or "Security snapshot captured.", photo_url_direct
+            ))
 
         return {"status": "ok", "processed": True, "has_photo": bool(photos)}
 

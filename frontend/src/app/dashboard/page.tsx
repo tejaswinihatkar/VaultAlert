@@ -23,7 +23,6 @@ import {
 } from "lucide-react";
 
 // Config - read from env or default to standard values
-const NTFY_TOPIC = process.env.NEXT_PUBLIC_NTFY_TOPIC || "vaultalert-mia-x9f2k7";
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE ||
   process.env.NEXT_PUBLIC_API_URL ||
@@ -198,74 +197,67 @@ export default function DashboardPage() {
     enabled: isLoggedIn, // only load when logged in
   });
 
-  // Connect to ntfy.sh and Telegram
+  // Connect to the VaultAlert backend (WebSocket live feed + Telegram backlog polling).
+  // ntfy.sh was removed — the hardware pipeline now flows entirely through our backend.
   useEffect(() => {
     if (!isLoggedIn) return;
 
     let active = true;
 
-    async function loadBacklog() {
-      // 1. Fetch ntfy backlog
-      let ntfyEvents: ClassifiedEvent[] = [];
-      try {
-        const response = await fetch(`https://ntfy.sh/${NTFY_TOPIC}/json?poll=1`);
-        if (response.ok) {
-          const text = await response.text();
-          const lines = text.trim().split("\n");
-          for (const line of lines) {
-            if (!line) continue;
-            try {
-              const rawMsg: RawNtfyMessage = JSON.parse(line);
-              ntfyEvents.push(classifyEvent(rawMsg));
-            } catch (e) {}
-          }
-        }
-      } catch (err) {
-        console.error("Failed to load ntfy backlog:", err);
-      }
-
-      // 2. Fetch Telegram channel backlog via our backend
-      let telegramEvents: ClassifiedEvent[] = [];
-      try {
-        const response = await fetch(`${API_BASE}/api/v1/telegram-events`);
-        if (response.ok) {
-          const data = await response.json();
-          telegramEvents = data.map((item: any) => {
-            const rawMsg: RawNtfyMessage = {
-              id: item.id,
-              time: item.time,
-              message: item.message,
-            };
-            return classifyEvent(rawMsg);
-          });
-        }
-      } catch (err) {
-        console.error("Failed to load Telegram events:", err);
-      }
-
-      if (!active) return;
-
-      // Merge and deduplicate
+    // Merge new events into state, deduped by message + timestamp, newest first.
+    const mergeEvents = (incoming: ClassifiedEvent[]) => {
       setEvents((prev) => {
-        const combined = [...ntfyEvents, ...telegramEvents, ...prev];
+        const combined = [...incoming, ...prev];
         const unique = Array.from(
           new Map(combined.map((item) => [`${item.originalMessage}-${item.timestamp}`, item])).values()
         );
         return unique.sort((a, b) => b.timestamp - a.timestamp);
       });
+    };
+
+    // Fetch the Telegram/hardware event backlog from our backend.
+    async function loadBacklog() {
+      try {
+        const response = await fetch(`${API_BASE}/api/v1/telegram-events`);
+        if (!response.ok) return;
+        const data = await response.json();
+        if (!active) return;
+        mergeEvents(
+          data.map((item: any) =>
+            classifyEvent({ id: item.id, time: item.time, message: item.message })
+          )
+        );
+      } catch (err) {
+        console.error("Failed to load Telegram events:", err);
+      }
     }
 
+    // Poll the backlog every 5s as a reliable fallback to the WebSocket push.
     loadBacklog();
+    const backlogInterval = setInterval(loadBacklog, 5000);
 
-    // Connect to WebSocket /ws/live-feed for instant real-time pushes
+    // WebSocket /ws/live-feed with auto-reconnect (backoff) — Render free tier
+    // sleeps, so a single failed connect must not leave us stuck offline.
     let ws: WebSocket | null = null;
-    try {
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let retryDelay = 1000; // grows to a 15s cap
+
+    const connect = () => {
+      if (!active) return;
       const wsProto = API_BASE.startsWith("https") ? "wss" : "ws";
       const wsHost = API_BASE.replace(/^https?:\/\//, "");
-      ws = new WebSocket(`${wsProto}://${wsHost}/ws/live-feed`);
+      try {
+        ws = new WebSocket(`${wsProto}://${wsHost}/ws/live-feed`);
+      } catch (wsErr) {
+        console.warn("WebSocket init error:", wsErr);
+        scheduleReconnect();
+        return;
+      }
 
       ws.onopen = () => {
-        if (active) setSseConnected(true);
+        if (!active) return;
+        setSseConnected(true);
+        retryDelay = 1000; // reset backoff on a good connection
       };
 
       ws.onmessage = (msgEvent) => {
@@ -275,12 +267,13 @@ export default function DashboardPage() {
           if (payload.type === "camera_snapshot" || payload.type === "security_event") {
             refetchFootage();
             if (payload.data && payload.data.originalMessage) {
-              const newEvt = classifyEvent({
-                id: payload.data.id || String(Date.now()),
-                time: Math.floor((payload.data.timestamp || Date.now()) / 1000),
-                message: payload.data.originalMessage,
-              });
-              setEvents((prev) => [newEvt, ...prev]);
+              mergeEvents([
+                classifyEvent({
+                  id: payload.data.id || String(Date.now()),
+                  time: Math.floor((payload.data.timestamp || Date.now()) / 1000),
+                  message: payload.data.originalMessage,
+                }),
+              ]);
             }
           }
         } catch (e) {
@@ -288,43 +281,32 @@ export default function DashboardPage() {
         }
       };
 
-      ws.onerror = () => {
+      ws.onclose = () => {
         if (active) setSseConnected(false);
+        scheduleReconnect();
       };
-    } catch (wsErr) {
-      console.warn("WebSocket connection init error:", wsErr);
-    }
 
-    const eventSource = new EventSource(`https://ntfy.sh/${NTFY_TOPIC}/sse`);
-
-    eventSource.onopen = () => {
-      if (active) setSseConnected(true);
+      ws.onerror = () => {
+        // onclose fires right after onerror and handles the reconnect.
+        try { ws?.close(); } catch {}
+      };
     };
 
-    eventSource.onerror = () => {
-      // Don't mark offline if WS is connected
+    const scheduleReconnect = () => {
+      if (!active || reconnectTimer) return;
+      reconnectTimer = setTimeout(() => {
+        reconnectTimer = null;
+        retryDelay = Math.min(retryDelay * 2, 15000);
+        connect();
+      }, retryDelay);
     };
 
-    eventSource.onmessage = (event) => {
-      if (!active) return;
-      try {
-        const rawMsg: RawNtfyMessage = JSON.parse(event.data);
-        const newEvent = classifyEvent(rawMsg);
-        setEvents((prev) => {
-          const combined = [newEvent, ...prev];
-          const unique = Array.from(
-            new Map(combined.map((item) => [`${item.originalMessage}-${item.timestamp}`, item])).values()
-          );
-          return unique.sort((a, b) => b.timestamp - a.timestamp);
-        });
-      } catch (e) {
-        console.error("Failed to parse live event:", e);
-      }
-    };
+    connect();
 
     return () => {
       active = false;
-      eventSource.close();
+      clearInterval(backlogInterval);
+      if (reconnectTimer) clearTimeout(reconnectTimer);
       if (ws) ws.close();
     };
   }, [isLoggedIn, refetchFootage]);
@@ -509,6 +491,14 @@ export default function DashboardPage() {
             {sseConnected ? "Live Connection" : "Connecting..."}
           </div>
 
+          <a
+            href="/history"
+            className="flex items-center gap-2 px-3 py-1.5 border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-800 text-xs font-semibold rounded-full transition-all shadow-sm active:scale-[0.98]"
+          >
+            <Clock className="h-3.5 w-3.5" />
+            History
+          </a>
+
           <button
             onClick={handleLogout}
             className="flex items-center gap-2 px-3 py-1.5 border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-800 text-xs font-semibold rounded-full transition-all shadow-sm active:scale-[0.98]"
@@ -585,7 +575,7 @@ export default function DashboardPage() {
             </div>
 
             <div className="border-t border-slate-100 pt-4 flex items-center justify-between text-xs text-slate-400">
-              <span>Hardware bus: <code className="text-indigo-600 bg-slate-50 px-1.5 py-0.5 rounded font-mono">ntfy.sh/{NTFY_TOPIC}</code></span>
+              <span>Hardware bus: <code className="text-indigo-600 bg-slate-50 px-1.5 py-0.5 rounded font-mono">vaultalert-api · live feed</code></span>
               <span className="flex items-center gap-1">
                 <Clock className="h-3.5 w-3.5 text-slate-400" />
                 Auto-updating
