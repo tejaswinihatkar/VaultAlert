@@ -32,6 +32,62 @@ class Base64SnapshotPayload(BaseModel):
     event_type: Optional[str] = "camera_snapshot"
 
 
+class TextAlertPayload(BaseModel):
+    title: str
+    user: Optional[str] = ""
+    extra: Optional[str] = ""
+    device_id: Optional[str] = "vaultalert_main"
+
+
+@router.post("/camera/text-alert")
+async def push_text_alert(payload: TextAlertPayload):
+    """
+    Stores a text-only alert (no photo) and broadcasts it to the dashboard.
+    Used for alerts like "Password Verified" / "Wrong Password Attempt" that
+    don't have an accompanying snapshot.
+
+    IMPORTANT: this endpoint only writes to the in-memory cache and pushes a
+    WebSocket broadcast — it never calls the Telegram API. That's deliberate:
+    an earlier version of this pipeline posted text alerts back into the
+    Telegram group, which the userbot relay then picked up as a "new"
+    message and forwarded again, causing an infinite loop. Do not add any
+    Telegram API calls to this function.
+    """
+    try:
+        message = payload.title
+        if payload.user:
+            message += f" — {payload.user}"
+        if payload.extra:
+            message += f" ({payload.extra})"
+
+        event_entry = {
+            "message": message,
+            "time": int(time.time()),
+            "photo_url": None,
+        }
+        event_id = telegram_cache.add_event(event_entry)
+
+        broadcast_data = {
+            "event_id": event_id,
+            "title": payload.title,
+            "user": payload.user,
+            "extra": payload.extra,
+            "timestamp": int(time.time() * 1000),
+            "device_id": payload.device_id,
+        }
+        await ws_manager.broadcast_global("text_alert", broadcast_data)
+
+        logger.info(f"Text alert received from {payload.device_id}: '{message}'")
+        return {"status": "success", "event_id": event_id}
+
+    except Exception as e:
+        logger.error(f"Error processing text alert: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to process text alert: {str(e)}",
+        )
+
+
 @router.post("/camera/snapshot")
 async def upload_camera_snapshot(
     file: Optional[UploadFile] = File(None),

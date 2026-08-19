@@ -88,6 +88,24 @@ def push_photo(jpeg_bytes: bytes, caption: str) -> None:
         print("  ! photo push failed:", e)
 
 
+def push_text(text: str) -> None:
+    """
+    Send a text-only alert to the dashboard via the SAFE /camera/text-alert
+    endpoint. Unlike the old approach, this endpoint only writes to the
+    dashboard's in-memory cache and broadcasts over WebSocket — it never
+    calls the Telegram API, so it cannot recreate the repost loop.
+    """
+    try:
+        r = requests.post(
+            f"{VA_API_BASE}/camera/text-alert",
+            json={"title": text, "user": "", "extra": "", "device_id": "telegram_userbot"},
+            timeout=15,
+        )
+        print(f"  → text pushed [{r.status_code}] '{text[:40]}'")
+    except Exception as e:
+        print("  ! text push failed:", e)
+
+
 @client.on(events.NewMessage(chats=GROUP_ID))
 async def on_group_message(event):
     msg = event.message
@@ -96,8 +114,6 @@ async def on_group_message(event):
     print(f"[seen] id={msg.id} from={msg.sender_id} has_photo={bool(msg.photo)} text={caption[:50]!r}")
 
     # Photo (or image document) → forward the actual bytes, caption included.
-    # Text-only messages are not forwarded (there's no separate "text alert"
-    # dashboard endpoint that doesn't risk touching Telegram again).
     if msg.photo or (msg.document and (msg.document.mime_type or "").startswith("image/")):
         try:
             data = await msg.download_media(bytes)
@@ -115,6 +131,18 @@ async def on_group_message(event):
 
         push_photo(data, caption or "Security Snapshot")
         return
+
+    # Text-only alert (no photo attached) → forward via the safe endpoint.
+    if caption:
+        content_hash = hashlib.sha256(caption.encode()).hexdigest()
+        now = time.time()
+        last_seen = _recent_hashes.get(content_hash)
+        if last_seen and (now - last_seen) < DEDUPE_WINDOW_SECONDS:
+            print(f"  (duplicate text within {DEDUPE_WINDOW_SECONDS}s, skipping)")
+            return
+        _recent_hashes[content_hash] = now
+
+        push_text(caption)
 
 
 def main():
