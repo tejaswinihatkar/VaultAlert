@@ -97,6 +97,17 @@ async def proxy_telegram_photo(file_id: str):
         )
 
 
+# ── POST /api/v1/footage/clear ────────────────────────────────────────────────
+@router.post("/footage/clear")
+async def clear_live_cache():
+    """
+    Clear the live in-memory cache (footage + events shown on the dashboard now).
+    Persistent DB history is NOT affected. New alerts will repopulate it.
+    """
+    counts = telegram_cache.clear()
+    return {"status": "ok", "cleared": counts}
+
+
 # ── GET /api/v1/history ───────────────────────────────────────────────────────
 @router.get("/history")
 async def get_history(limit: int = 200, severity: Optional[str] = None):

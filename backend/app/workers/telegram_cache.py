@@ -14,6 +14,20 @@ _payloads: deque = deque(maxlen=20)  # List[Dict] — raw webhook payloads for d
 _seen_messages: deque = deque(maxlen=500)  # message keys already processed (webhook dedupe)
 
 
+def clear() -> dict:
+    """Clear the live in-memory cache (photos, events, dedupe state).
+
+    Only affects what the dashboard shows right now; persistent DB history is
+    untouched. Data also rebuilds naturally as new alerts arrive.
+    """
+    counts = {"photos": len(_photos), "events": len(_events)}
+    _photos.clear()
+    _events.clear()
+    _payloads.clear()
+    _seen_messages.clear()
+    return counts
+
+
 def seen_message(key: str) -> bool:
     """Return True if this Telegram message key was already processed (and record it).
 
